@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Connect 4 & 5 AI Solver</title>
+    <style>
+        :root {
+            --cell-size: clamp(30px, 9.5vw, 45px);
+            --board-color: #1e3a8a;
+            --player1-color: #ef4444;
+            --player2-color: #eab308;
+            --bg-color: #0f172a;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: #ffffff;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .header-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin: 5px 0 10px 0;
+            width: 100%;
+            max-width: 420px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            text-align: center;
+        }
+
+        .github-link {
+            display: inline-flex;
+            align-items: center;
+            color: #94a3b8;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+        .github-link:hover, .github-link:active {
+            color: #ffffff;
+        }
+        .github-link svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        .controls {
+            background: #1e293b;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 420px;
+            box-sizing: border-box;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+        }
+
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .control-row:last-child { margin-bottom: 0; }
+
+        label { font-size: 0.9rem; font-weight: 500; }
+
+        select {
+            background: #334155;
+            color: white;
+            border: 1px solid #475569;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        .status {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            height: 1.4em;
+            text-align: center;
+        }
+
+        .board-container {
+            background: var(--board-color);
+            padding: 10px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+            touch-action: manipulation;
+        }
+
+        .board {
+            display: grid;
+            gap: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .cell {
+            background: var(--bg-color);
+            border-radius: 50%;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .cell.p1::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--player1-color);
+            border-radius: 50%;
+            box-shadow: inset 0 -4px 6px rgba(0,0,0,0.4);
+        }
+
+        .cell.p2::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--player2-color);
+            border-radius: 50%;
+            box-shadow: inset 0 -4px 6px rgba(0,0,0,0.4);
+        }
+
+        .btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1rem;
+            margin-top: 15px;
+            cursor: pointer;
+            width: 100%;
+            max-width: 200px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        .btn:active { background: #1d4ed8; }
+    </style>
+</head>
+<body>
+
+    <div class="header-container">
+        <h1>Connect 4 & 5 Solver</h1>
+        <a class="github-link" href="https://github.com/z3nax" target="_blank" rel="noopener noreferrer" aria-label="GitHub Profile">
+            <svg viewBox="0 0 24 24">
+                <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.646.64.699 1.026 1.592 1.026 2.683 0 3.842-2.337 4.687-4.565 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.577.688.479C19.138 20.164 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
+            </svg>
+        </a>
+    </div>
+
+    <div class="controls">
+        <div class="control-row">
+            <label>Game Variant:</label>
+            <select id="game-mode">
+                <option value="c4">Connect 4 (7x6 Grid)</option>
+                <option value="c5" selected>Connect 5 (9x7 Grid)</option>
+            </select>
+        </div>
+        <div class="control-row">
+            <label style="color: var(--player1-color);">Red (Player 1):</label>
+            <select id="p1-type">
+                <option value="human">Human</option>
+                <option value="ai">AI (Solver)</option>
+            </select>
+        </div>
+        <div class="control-row">
+            <label style="color: var(--player2-color);">Yellow (Player 2):</label>
+            <select id="p2-type">
+                <option value="human">Human</option>
+                <option value="ai" selected>AI (Solver)</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="status" id="status-text">Red's Turn</div>
+
+    <div class="board-container">
+        <div class="board" id="game-board"></div>
+    </div>
+
+    <button class="btn" id="reset-btn">Reset Game</button>
+
+    <script>
+        let ROWS = 7;
+        let COLS = 9;
+        let WINDOW_SIZE = 5;
+        let aiDepth = 4;
+
+        let board = [];
+        let currentPlayer = 1; 
+        let gameActive = true;
+        let searchOrder = [];
+        let centerWeights = [];
+        let isThinking = false;
+        
+        const boardEl = document.getElementById('game-board');
+        const statusEl = document.getElementById('status-text');
+        const resetBtn = document.getElementById('reset-btn');
+        const gameModeSelect = document.getElementById('game-mode');
+        const p1TypeSelect = document.getElementById('p1-type');
+        const p2TypeSelect = document.getElementById('p2-type');
+
+        function configureRules() {
+            if (gameModeSelect.value === 'c4') {
+                ROWS = 6;
+                COLS = 7;
+                WINDOW_SIZE = 4;
+                aiDepth = 5; // Balanced depth to reliably prevent mobile loop timeouts
+                searchOrder = [3, 2, 4, 1, 5, 0, 6];
+                centerWeights = [
+                    [1, 1, 2, 3, 2, 1, 1],
+                    [1, 2, 3, 4, 3, 2, 1],
+                    [2, 3, 4, 5, 4, 3, 2],
+                    [2, 3, 4, 5, 4, 3, 2],
+                    [1, 2, 3, 4, 3, 2, 1],
+                    [1, 1, 2, 3, 2, 1, 1]
+                ];
+            } else {
+                ROWS = 7;
+                COLS = 9;
+                WINDOW_SIZE = 5;
+                aiDepth = 3; // Depth 3 runs instantly on 9x7 mobile while maintaining aggressive lookahead blocks
+                searchOrder = [4, 3, 5, 2, 6, 1, 7, 0, 8];
+                centerWeights = [
+                    [1, 1, 2, 2, 3, 2, 2, 1, 1],
+                    [1, 2, 3, 3, 4, 3, 3, 2, 1],
+                    [2, 3, 4, 5, 6, 5, 4, 3, 2],
+                    [2, 3, 5, 6, 8, 6, 5, 3, 2],
+                    [2, 3, 4, 5, 6, 5, 4, 3, 2],
+                    [1, 2, 3, 3, 4, 3, 3, 2, 1],
+                    [1, 1, 2, 2, 3, 2, 2, 1, 1]
+                ];
+            }
+            boardEl.style.gridTemplateColumns = `repeat(${COLS}, var(--cell-size))`;
+            boardEl.style.gridTemplateRows = `repeat(${ROWS}, var(--cell-size))`;
+        }
+
+        function initGame() {
+            isThinking = false;
+            configureRules();
+            board = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
+            currentPlayer = 1;
+            gameActive = true;
+            createBoardUI();
+            updateStatus();
+            checkAIMove();
+        }
+
+        function createBoardUI() {
+            boardEl.innerHTML = '';
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+                    cell.addEventListener('click', () => handleCellClick(c));
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+        function updateBoardUI() {
+            const cells = boardEl.children;
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const index = r * COLS + c;
+                    cells[index].className = 'cell';
+                    if (board[r][c] === 1) cells[index].classList.add('p1');
+                    if (board[r][c] === 2) cells[index].classList.add('p2');
+                }
+            }
+        }
+
+        function updateStatus() {
+            if (!gameActive) return;
+            const pType = currentPlayer === 1 ? p1TypeSelect.value : p2TypeSelect.value;
+            const pName = currentPlayer === 1 ? "Red" : "Yellow";
+            statusEl.innerText = `${pName}'s Turn ${pType === 'ai' ? '(Thinking...)' : ''}`;
+            statusEl.style.color = currentPlayer === 1 ? 'var(--player1-color)' : 'var(--player2-color)';
+        }
+
+        function handleCellClick(col) {
+            if (!gameActive || isThinking) return;
+            const currentType = currentPlayer === 1 ? p1TypeSelect.value : p2TypeSelect.value;
+            if (currentType === 'ai') return; 
+
+            makeMove(col);
+        }
+
+        function makeMove(col) {
+            const row = getNextOpenRow(board, col);
+            if (row === -1) return false; 
+
+            board[row][col] = currentPlayer;
+            updateBoardUI();
+
+            if (checkWin(board, currentPlayer)) {
+                statusEl.innerText = `${currentPlayer === 1 ? 'Red' : 'Yellow'} Wins!`;
+                gameActive = false;
+                isThinking = false;
+                return true;
+            }
+
+            if (isBoardFull(board)) {
+                statusEl.innerText = "It's a Draw!";
+                statusEl.style.color = '#ffffff';
+                gameActive = false;
+                isThinking = false;
+                return true;
+            }
+
+            currentPlayer = currentPlayer === 1 ? 2 : 1;
+            updateStatus();
+            
+            setTimeout(checkAIMove, 40);
+            return true;
+        }
+
+        function checkAIMove() {
+            if (!gameActive || isThinking) return;
+            const currentType = currentPlayer === 1 ? p1TypeSelect.value : p2TypeSelect.value;
+            if (currentType === 'ai') {
+                isThinking = true;
+                // Yield thread processing using requestAnimationFrame to clear out DOM queues
+                requestAnimationFrame(() => {
+                    setTimeout(() => {
+                        const aiCol = getBestMove(board, currentPlayer);
+                        isThinking = false;
+                        if (aiCol !== -1 && gameActive) {
+                            makeMove(aiCol);
+                        }
+                    }, 10);
+                });
+            }
+        }
+
+        function getNextOpenRow(b, col) {
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (b[r][col] === 0) return r;
+            }
+            return -1;
+        }
+
+        function isBoardFull(b) {
+            return b[0].every(cell => cell !== 0);
+        }
+
+        function checkWin(b, player) {
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
+                    if (Array(WINDOW_SIZE).fill().every((_, i) => b[r][c+i] === player)) return true;
+                }
+            }
+            for (let c = 0; c < COLS; c++) {
+                for (let r = 0; r <= ROWS - WINDOW_SIZE; r++) {
+                    if (Array(WINDOW_SIZE).fill().every((_, i) => b[r+i][c] === player)) return true;
+                }
+            }
+            for (let r = WINDOW_SIZE - 1; r < ROWS; r++) {
+                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
+                    if (Array(WINDOW_SIZE).fill().every((_, i) => b[r-i][c+i] === player)) return true;
+                }
+            }
+            for (let r = 0; r <= ROWS - WINDOW_SIZE; r++) {
+                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
+                    if (Array(WINDOW_SIZE).fill().every((_, i) => b[r+i][c+i] === player)) return true;
+                }
+            }
+            return false;
+        }
+
+        function getBestMove(b, player) {
+            const validMoves = [];
+            for (let col of searchOrder) {
+                if (getNextOpenRow(b, col) !== -1) validMoves.push(col);
+            }
+
+            if (validMoves.length === 0) return -1;
+
+            // Immediate defensive check: Force a block if the opponent can win on their very next turn
+            const oppPlayer = player === 1 ? 2 : 1;
+            for (let col of validMoves) {
+                let r = getNextOpenRow(b, col);
+                b[r][col] = oppPlayer;
+                const oppWins = checkWin(b, oppPlayer);
+                b[r][col] = 0;
+                if (oppWins) return col; 
+            }
+
+            // Immediate offensive check: Take the winning move if available right now
+            for (let col of validMoves) {
+                let r = getNextOpenRow(b, col);
+                b[r][col] = player;
+                const iWin = checkWin(b, player);
+                b[r][col] = 0;
+                if (iWin) return col;
+            }
+
+            let bestScore = -Infinity;
+            let bestMove = validMoves[0];
+
+            for (let col of validMoves) {
+                let r = getNextOpenRow(b, col);
+                b[r][col] = player;
+                let score = minimax(b, aiDepth - 1, -Infinity, Infinity, false, player);
+                b[r][col] = 0;
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMove = col;
+                }
+            }
+            return bestMove;
+        }
+
+        function evaluateWindow(window, aiPlayer) {
+            let score = 0;
+            const oppPlayer = aiPlayer === 1 ? 2 : 1;
+
+            const aiCount = window.filter(cell => cell === aiPlayer).length;
+            const oppCount = window.filter(cell => cell === oppPlayer).length;
+            const emptyCount = window.filter(cell => cell === 0).length;
+
+            if (WINDOW_SIZE === 5) {
+                if (aiCount === 5) score += 100000;
+                else if (aiCount === 4 && emptyCount === 1) score += 2000;
+                else if (aiCount === 3 && emptyCount === 2) score += 100;
+                else if (aiCount === 2 && emptyCount === 3) score += 10;
+
+                if (oppCount === 4 && emptyCount === 1) score -= 9000; 
+                else if (oppCount === 3 && emptyCount === 2) score -= 400;
+            } else { 
+                if (aiCount === 4) score += 100000;
+                else if (aiCount === 3 && emptyCount === 1) score += 500;
+                else if (aiCount === 2 && emptyCount === 2) score += 10;
+
+                if (oppCount === 3 && emptyCount === 1) score -= 4000;
+                else if (oppCount === 2 && emptyCount === 2) score -= 100;
+            }
+
+            return score;
+        }
+
+        function scoreBoard(b, aiPlayer) {
+            let score = 0;
+
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (b[r][c] === aiPlayer) score += centerWeights[r][c];
+                }
+            }
+
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
+                    const window = b[r].slice(c, c + WINDOW_SIZE);
+                    score += evaluateWindow(window, aiPlayer);
+                }
+            }
+
+            for (let c = 0; c < COLS; c++) {
+                for (let r = 0; r <= ROWS - WINDOW_SIZE; r++) {
+                    const window = Array(WINDOW_SIZE).fill().map((_, i) => b[r+i][c]);
+                    score += evaluateWindow(window, aiPlayer);
+                }
+            }
+
+            for (let r = WINDOW_SIZE - 1; r < ROWS; r++) {
+                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
+                    const window = Array(WINDOW_SIZE).fill().map((_, i) => b[r-i][c+i]);
+                    score += evaluateWindow(window, aiPlayer);
+                }
+            }
+
+            for (let r = 0; r <= ROWS - WINDOW_SIZE; r++) {
+                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
+                    const window = Array(WINDOW_SIZE).fill().map((_, i) => b[r+i][c+i]);
+                    score += evaluateWindow(window, aiPlayer);
+                }
+            }
+
+            return score;
+        }
+
+        function minimax(b, depth, alpha, beta, isMaximizing, aiPlayer) {
+            const oppPlayer = aiPlayer === 1 ? 2 : 1;
+            const isWinAI = checkWin(b, aiPlayer);
+            const isWinOpp = checkWin(b, oppPlayer);
+            const isTerminal = isWinAI || isWinOpp || isBoardFull(b);
+
+            if (depth === 0 || isTerminal) {
+                if (isWinAI) return 10000000 + depth; 
+                if (isWinOpp) return -10000000 - depth; 
+                if (isBoardFull(b)) return 0;
+                return scoreBoard(b, aiPlayer);
+            }
+            
+            if (isMaximizing) {
+                let maxEval = -Infinity;
+                for (let col of searchOrder) {
+                    let r = getNextOpenRow(b, col);
+                    if (r !== -1) {
+                        b[r][col] = aiPlayer;
+                        let evaluation = minimax(b, depth - 1, alpha, beta, false, aiPlayer);
+                        b[r][col] = 0;
+                        maxEval = Math.max(maxEval, evaluation);
+                        alpha = Math.max(alpha, evaluation);
+                        if (beta <= alpha) break; 
+                    }
+                }
+                return maxEval;
+            } else {
+                let minEval = Infinity;
+                for (let col of searchOrder) {
+                    let r = getNextOpenRow(b, col);
+                    if (r !== -1) {
+                        b[r][col] = oppPlayer;
+                        let evaluation = minimax(b, depth - 1, alpha, beta, true, aiPlayer);
+                        b[r][col] = 0;
+                        minEval = Math.min(minEval, evaluation);
+                        beta = Math.min(beta, evaluation);
+                        if (beta <= alpha) break; 
+                    }
+                }
+                return minEval;
+            }
+        }
+
+        resetBtn.addEventListener('click', initGame);
+        gameModeSelect.addEventListener('change', initGame);
+        p1TypeSelect.addEventListener('change', initGame);
+        p2TypeSelect.addEventListener('change', initGame);
+
+        initGame();
+    </script>
+</body>
+</html>

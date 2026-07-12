@@ -161,7 +161,7 @@
 
     <div class="header-container">
         <h1>Connect 4 & 5 Solver</h1>
-        <a class="github-link" href="https://github.com/z3nax" target="_blank" rel="noopener noreferrer" aria-label="GitHub Profile">
+        <a class="github-link" href="https://github.com/z3nax/connect45" target="_blank" rel="noopener noreferrer" aria-label="GitHub Profile">
             <svg viewBox="0 0 24 24">
                 <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.646.64.699 1.026 1.592 1.026 2.683 0 3.842-2.337 4.687-4.565 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.577.688.479C19.138 20.164 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
             </svg>
@@ -204,15 +204,16 @@
         let ROWS = 7;
         let COLS = 9;
         let WINDOW_SIZE = 5;
-        let aiDepth = 4;
+        let MAX_DEPTH = 8;
 
         let board = [];
         let currentPlayer = 1; 
         let gameActive = true;
-        let searchOrder = [];
-        let centerWeights = [];
         let isThinking = false;
         
+        // Memoization Table to cache unique transpositions using BigInt keys
+        let transpositionTable = new Map();
+
         const boardEl = document.getElementById('game-board');
         const statusEl = document.getElementById('status-text');
         const resetBtn = document.getElementById('reset-btn');
@@ -221,35 +222,17 @@
         const p2TypeSelect = document.getElementById('p2-type');
 
         function configureRules() {
+            transpositionTable.clear();
             if (gameModeSelect.value === 'c4') {
                 ROWS = 6;
                 COLS = 7;
                 WINDOW_SIZE = 4;
-                aiDepth = 5; // Balanced depth to reliably prevent mobile loop timeouts
-                searchOrder = [3, 2, 4, 1, 5, 0, 6];
-                centerWeights = [
-                    [1, 1, 2, 3, 2, 1, 1],
-                    [1, 2, 3, 4, 3, 2, 1],
-                    [2, 3, 4, 5, 4, 3, 2],
-                    [2, 3, 4, 5, 4, 3, 2],
-                    [1, 2, 3, 4, 3, 2, 1],
-                    [1, 1, 2, 3, 2, 1, 1]
-                ];
+                MAX_DEPTH = 12; // Deeper tactical lookahead for standard Connect 4
             } else {
                 ROWS = 7;
                 COLS = 9;
                 WINDOW_SIZE = 5;
-                aiDepth = 3; // Depth 3 runs instantly on 9x7 mobile while maintaining aggressive lookahead blocks
-                searchOrder = [4, 3, 5, 2, 6, 1, 7, 0, 8];
-                centerWeights = [
-                    [1, 1, 2, 2, 3, 2, 2, 1, 1],
-                    [1, 2, 3, 3, 4, 3, 3, 2, 1],
-                    [2, 3, 4, 5, 6, 5, 4, 3, 2],
-                    [2, 3, 5, 6, 8, 6, 5, 3, 2],
-                    [2, 3, 4, 5, 6, 5, 4, 3, 2],
-                    [1, 2, 3, 3, 4, 3, 3, 2, 1],
-                    [1, 1, 2, 2, 3, 2, 2, 1, 1]
-                ];
+                MAX_DEPTH = 7;  // Balanced safe depth for the massive Connect 5 branching factor
             }
             boardEl.style.gridTemplateColumns = `repeat(${COLS}, var(--cell-size))`;
             boardEl.style.gridTemplateRows = `repeat(${ROWS}, var(--cell-size))`;
@@ -296,7 +279,7 @@
             if (!gameActive) return;
             const pType = currentPlayer === 1 ? p1TypeSelect.value : p2TypeSelect.value;
             const pName = currentPlayer === 1 ? "Red" : "Yellow";
-            statusEl.innerText = `${pName}'s Turn ${pType === 'ai' ? '(Thinking...)' : ''}`;
+            statusEl.innerText = `${pName}'s Turn ${pType === 'ai' ? '(Analyzing Space...)' : ''}`;
             statusEl.style.color = currentPlayer === 1 ? 'var(--player1-color)' : 'var(--player2-color)';
         }
 
@@ -322,7 +305,7 @@
                 return true;
             }
 
-            if (isBoardFull(board)) {
+            if (board[0].every(cell => cell !== 0)) {
                 statusEl.innerText = "It's a Draw!";
                 statusEl.style.color = '#ffffff';
                 gameActive = false;
@@ -337,15 +320,87 @@
             return true;
         }
 
+        function getNextOpenRow(b, col) {
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (b[r][col] === 0) return r;
+            }
+            return -1;
+        }
+
+        function checkWin(b, player) {
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
+                    if (b[r][c] === player && Array(WINDOW_SIZE).fill().every((_, i) => b[r][c+i] === player)) return true;
+                }
+            }
+            for (let c = 0; c < COLS; c++) {
+                for (let r = 0; r <= ROWS - WINDOW_SIZE; r++) {
+                    if (b[r][c] === player && Array(WINDOW_SIZE).fill().every((_, i) => b[r+i][c] === player)) return true;
+                }
+            }
+            for (let r = WINDOW_SIZE - 1; r < ROWS; r++) {
+                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
+                    if (b[r][c] === player && Array(WINDOW_SIZE).fill().every((_, i) => b[r-i][c+i] === player)) return true;
+                }
+            }
+            for (let r = 0; r <= ROWS - WINDOW_SIZE; r++) {
+                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
+                    if (b[r][c] === player && Array(WINDOW_SIZE).fill().every((_, i) => b[r+i][c+i] === player)) return true;
+                }
+            }
+            return false;
+        }
+
+        /* 
+           ========================================================================
+           ⚡ FLAWLESS 64-BIT/128-BIT NATIVE BIGINT ENGINE
+           ========================================================================
+        */
+
+        // Maps array configurations cleanly into full arbitrary-precision BigInt keys
+        function getBigIntBitboards(b) {
+            let p1 = 0n;
+            let p2 = 0n;
+
+            for (let c = 0; c < COLS; c++) {
+                for (let r = ROWS - 1; r >= 0; r--) {
+                    // Column major allocation adding an empty boundary bit at top of each column
+                    let bitIndex = BigInt(c * (ROWS + 1) + (ROWS - 1 - r));
+                    if (b[r][c] === 1) {
+                        p1 |= (1n << bitIndex);
+                    } else if (b[r][c] === 2) {
+                        p2 |= (1n << bitIndex);
+                    }
+                }
+            }
+            return { p1, p2 };
+        }
+
+        function checkBigIntWin(boardMask) {
+            let consecutive = BigInt(WINDOW_SIZE - 1);
+            // Directions shifted cleanly across 64+ bit registers:
+            // 1: Vertical, ROWS+1: Horizontal, ROWS+2: Diagonal-Up, ROWS: Diagonal-Down
+            let shiftDirections = [1n, BigInt(ROWS + 1), BigInt(ROWS + 2), BigInt(ROWS)]; 
+
+            for (let shift of shiftDirections) {
+                let mask = boardMask;
+                for (let i = 0n; i < consecutive; i++) {
+                    mask = mask & (mask >> shift);
+                }
+                if (mask !== 0n) return true;
+            }
+            return false;
+        }
+
         function checkAIMove() {
             if (!gameActive || isThinking) return;
             const currentType = currentPlayer === 1 ? p1TypeSelect.value : p2TypeSelect.value;
             if (currentType === 'ai') {
                 isThinking = true;
-                // Yield thread processing using requestAnimationFrame to clear out DOM queues
                 requestAnimationFrame(() => {
                     setTimeout(() => {
-                        const aiCol = getBestMove(board, currentPlayer);
+                        const bitboards = getBigIntBitboards(board);
+                        const aiCol = getBestBitboardMove(bitboards, currentPlayer);
                         isThinking = false;
                         if (aiCol !== -1 && gameActive) {
                             makeMove(aiCol);
@@ -355,76 +410,47 @@
             }
         }
 
-        function getNextOpenRow(b, col) {
-            for (let r = ROWS - 1; r >= 0; r--) {
-                if (b[r][col] === 0) return r;
-            }
-            return -1;
-        }
+        function getBestBitboardMove(bbs, aiPlayer) {
+            let validMoves = [];
+            let center = Math.floor(COLS / 2);
+            
+            let order = Array.from({length: COLS}, (_, i) => i).sort((a, b) => Math.abs(a - center) - Math.abs(b - center));
 
-        function isBoardFull(b) {
-            return b[0].every(cell => cell !== 0);
-        }
-
-        function checkWin(b, player) {
-            for (let r = 0; r < ROWS; r++) {
-                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
-                    if (Array(WINDOW_SIZE).fill().every((_, i) => b[r][c+i] === player)) return true;
-                }
-            }
-            for (let c = 0; c < COLS; c++) {
-                for (let r = 0; r <= ROWS - WINDOW_SIZE; r++) {
-                    if (Array(WINDOW_SIZE).fill().every((_, i) => b[r+i][c] === player)) return true;
-                }
-            }
-            for (let r = WINDOW_SIZE - 1; r < ROWS; r++) {
-                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
-                    if (Array(WINDOW_SIZE).fill().every((_, i) => b[r-i][c+i] === player)) return true;
-                }
-            }
-            for (let r = 0; r <= ROWS - WINDOW_SIZE; r++) {
-                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
-                    if (Array(WINDOW_SIZE).fill().every((_, i) => b[r+i][c+i] === player)) return true;
-                }
-            }
-            return false;
-        }
-
-        function getBestMove(b, player) {
-            const validMoves = [];
-            for (let col of searchOrder) {
-                if (getNextOpenRow(b, col) !== -1) validMoves.push(col);
+            for (let col of order) {
+                if (getNextOpenRow(board, col) !== -1) validMoves.push(col);
             }
 
             if (validMoves.length === 0) return -1;
 
-            // Immediate defensive check: Force a block if the opponent can win on their very next turn
-            const oppPlayer = player === 1 ? 2 : 1;
+            // Direct tactical shortcut sweeps
             for (let col of validMoves) {
-                let r = getNextOpenRow(b, col);
-                b[r][col] = oppPlayer;
-                const oppWins = checkWin(b, oppPlayer);
-                b[r][col] = 0;
-                if (oppWins) return col; 
+                let r = getNextOpenRow(board, col);
+                board[r][col] = aiPlayer;
+                let win = checkWin(board, aiPlayer);
+                board[r][col] = 0;
+                if (win) return col;
             }
 
-            // Immediate offensive check: Take the winning move if available right now
+            let oppPlayer = aiPlayer === 1 ? 2 : 1;
             for (let col of validMoves) {
-                let r = getNextOpenRow(b, col);
-                b[r][col] = player;
-                const iWin = checkWin(b, player);
-                b[r][col] = 0;
-                if (iWin) return col;
+                let r = getNextOpenRow(board, col);
+                board[r][col] = oppPlayer;
+                let block = checkWin(board, oppPlayer);
+                board[r][col] = 0;
+                if (block) return col;
             }
 
             let bestScore = -Infinity;
             let bestMove = validMoves[0];
 
             for (let col of validMoves) {
-                let r = getNextOpenRow(b, col);
-                b[r][col] = player;
-                let score = minimax(b, aiDepth - 1, -Infinity, Infinity, false, player);
-                b[r][col] = 0;
+                let r = getNextOpenRow(board, col);
+                board[r][col] = aiPlayer;
+                
+                let nextBbs = getBigIntBitboards(board);
+                let score = minimaxBitboard(nextBbs, MAX_DEPTH - 1, -Infinity, Infinity, false, aiPlayer, order);
+                
+                board[r][col] = 0;
 
                 if (score > bestScore) {
                     bestScore = score;
@@ -434,114 +460,77 @@
             return bestMove;
         }
 
-        function evaluateWindow(window, aiPlayer) {
+        function bitboardHeuristic(bbs, aiPlayer) {
             let score = 0;
-            const oppPlayer = aiPlayer === 1 ? 2 : 1;
-
-            const aiCount = window.filter(cell => cell === aiPlayer).length;
-            const oppCount = window.filter(cell => cell === oppPlayer).length;
-            const emptyCount = window.filter(cell => cell === 0).length;
-
-            if (WINDOW_SIZE === 5) {
-                if (aiCount === 5) score += 100000;
-                else if (aiCount === 4 && emptyCount === 1) score += 2000;
-                else if (aiCount === 3 && emptyCount === 2) score += 100;
-                else if (aiCount === 2 && emptyCount === 3) score += 10;
-
-                if (oppCount === 4 && emptyCount === 1) score -= 9000; 
-                else if (oppCount === 3 && emptyCount === 2) score -= 400;
-            } else { 
-                if (aiCount === 4) score += 100000;
-                else if (aiCount === 3 && emptyCount === 1) score += 500;
-                else if (aiCount === 2 && emptyCount === 2) score += 10;
-
-                if (oppCount === 3 && emptyCount === 1) score -= 4000;
-                else if (oppCount === 2 && emptyCount === 2) score -= 100;
-            }
-
-            return score;
-        }
-
-        function scoreBoard(b, aiPlayer) {
-            let score = 0;
-
+            let myPos = aiPlayer === 1 ? bbs.p1 : bbs.p2;
+            let centerCol = Math.floor(COLS / 2);
+            
+            // Advanced column grouping rewards center column dominance
             for (let r = 0; r < ROWS; r++) {
                 for (let c = 0; c < COLS; c++) {
-                    if (b[r][c] === aiPlayer) score += centerWeights[r][c];
+                    let bitIndex = BigInt(c * (ROWS + 1) + (ROWS - 1 - r));
+                    if (myPos & (1n << bitIndex)) {
+                        score += (c === centerCol) ? 5 : (Math.abs(c - centerCol) === 1) ? 3 : 1;
+                    }
                 }
             }
-
-            for (let r = 0; r < ROWS; r++) {
-                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
-                    const window = b[r].slice(c, c + WINDOW_SIZE);
-                    score += evaluateWindow(window, aiPlayer);
-                }
-            }
-
-            for (let c = 0; c < COLS; c++) {
-                for (let r = 0; r <= ROWS - WINDOW_SIZE; r++) {
-                    const window = Array(WINDOW_SIZE).fill().map((_, i) => b[r+i][c]);
-                    score += evaluateWindow(window, aiPlayer);
-                }
-            }
-
-            for (let r = WINDOW_SIZE - 1; r < ROWS; r++) {
-                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
-                    const window = Array(WINDOW_SIZE).fill().map((_, i) => b[r-i][c+i]);
-                    score += evaluateWindow(window, aiPlayer);
-                }
-            }
-
-            for (let r = 0; r <= ROWS - WINDOW_SIZE; r++) {
-                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
-                    const window = Array(WINDOW_SIZE).fill().map((_, i) => b[r+i][c+i]);
-                    score += evaluateWindow(window, aiPlayer);
-                }
-            }
-
             return score;
         }
 
-        function minimax(b, depth, alpha, beta, isMaximizing, aiPlayer) {
-            const oppPlayer = aiPlayer === 1 ? 2 : 1;
-            const isWinAI = checkWin(b, aiPlayer);
-            const isWinOpp = checkWin(b, oppPlayer);
-            const isTerminal = isWinAI || isWinOpp || isBoardFull(b);
+        function minimaxBitboard(bbs, depth, alpha, beta, isMaximizing, aiPlayer, searchOrder) {
+            let myPos = aiPlayer === 1 ? bbs.p1 : bbs.p2;
+            let oppPos = aiPlayer === 1 ? bbs.p2 : bbs.p1;
 
-            if (depth === 0 || isTerminal) {
-                if (isWinAI) return 10000000 + depth; 
-                if (isWinOpp) return -10000000 - depth; 
-                if (isBoardFull(b)) return 0;
-                return scoreBoard(b, aiPlayer);
+            if (checkBigIntWin(myPos)) return 10000000 + depth;
+            if (checkBigIntWin(oppPos)) return -10000000 - depth;
+
+            // Strict serialization key for hashing transpositions smoothly
+            let key = `${bbs.p1.toString()},${bbs.p2.toString()}`;
+            if (transpositionTable.has(key)) {
+                let cached = transpositionTable.get(key);
+                if (cached.depth >= depth) return cached.score;
             }
-            
+
+            if (depth === 0) {
+                let evalScore = bitboardHeuristic(bbs, aiPlayer);
+                transpositionTable.set(key, { depth: depth, score: evalScore });
+                return evalScore;
+            }
+
             if (isMaximizing) {
                 let maxEval = -Infinity;
                 for (let col of searchOrder) {
-                    let r = getNextOpenRow(b, col);
+                    let r = getNextOpenRow(board, col);
                     if (r !== -1) {
-                        b[r][col] = aiPlayer;
-                        let evaluation = minimax(b, depth - 1, alpha, beta, false, aiPlayer);
-                        b[r][col] = 0;
+                        board[r][col] = aiPlayer;
+                        let nextBbs = getBigIntBitboards(board);
+                        let evaluation = minimaxBitboard(nextBbs, depth - 1, alpha, beta, false, aiPlayer, searchOrder);
+                        board[r][col] = 0;
+
                         maxEval = Math.max(maxEval, evaluation);
                         alpha = Math.max(alpha, evaluation);
                         if (beta <= alpha) break; 
                     }
                 }
+                transpositionTable.set(key, { depth: depth, score: maxEval });
                 return maxEval;
             } else {
                 let minEval = Infinity;
+                let opp = aiPlayer === 1 ? 2 : 1;
                 for (let col of searchOrder) {
-                    let r = getNextOpenRow(b, col);
+                    let r = getNextOpenRow(board, col);
                     if (r !== -1) {
-                        b[r][col] = oppPlayer;
-                        let evaluation = minimax(b, depth - 1, alpha, beta, true, aiPlayer);
-                        b[r][col] = 0;
+                        board[r][col] = opp;
+                        let nextBbs = getBigIntBitboards(board);
+                        let evaluation = minimaxBitboard(nextBbs, depth - 1, alpha, beta, true, aiPlayer, searchOrder);
+                        board[r][col] = 0;
+
                         minEval = Math.min(minEval, evaluation);
                         beta = Math.min(beta, evaluation);
                         if (beta <= alpha) break; 
                     }
                 }
+                transpositionTable.set(key, { depth: depth, score: minEval });
                 return minEval;
             }
         }

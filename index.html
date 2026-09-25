@@ -1,546 +1,387 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Connect 4 & 5 AI Solver</title>
-    <style>
-        :root {
-            --cell-size: clamp(30px, 9.5vw, 45px);
-            --board-color: #1e3a8a;
-            --player1-color: #ef4444;
-            --player2-color: #eab308;
-            --bg-color: #0f172a;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Connect 4 & 5 AI Solver</title>
+<style>
+:root{--cell-size:clamp(30px,9.5vw,45px);--board-color:#1e3a8a;--player1-color:#ef4444;--player2-color:#eab308;--bg-color:#0f172a}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background-color:var(--bg-color);color:#fff;margin:0;padding:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;box-sizing:border-box;-webkit-user-select:none;user-select:none}
+.header-container{display:flex;align-items:center;justify-content:center;gap:12px;margin:5px 0 10px;width:100%;max-width:420px}
+h1{margin:0;font-size:1.5rem;text-align:center}
+.github-link{display:inline-flex;align-items:center;color:#94a3b8;text-decoration:none}
+.github-link:hover,.github-link:active{color:#fff}.github-link svg{width:24px;height:24px;fill:currentColor}
+.controls{background:#1e293b;padding:12px;border-radius:12px;margin-bottom:15px;width:100%;max-width:420px;box-sizing:border-box;box-shadow:0 4px 6px -1px rgba(0,0,0,.3)}
+.control-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.control-row:last-child{margin-bottom:0}
+label{font-size:.9rem;font-weight:500}
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: #ffffff;
-            margin: 0;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            box-sizing: border-box;
-            -webkit-user-select: none;
-            user-select: none;
-        }
+.pill-group{display:flex;gap:4px;background:#0f172a;padding:3px;border-radius:999px;border:1px solid #334155}
+.pill{border:none;background:transparent;color:#94a3b8;padding:6px 11px;border-radius:999px;font-size:.82rem;font-weight:600;cursor:pointer;transition:background .15s,color .15s}
+.pill:hover{color:#fff}
+.pill.active{background:#2563eb;color:#fff;box-shadow:0 2px 5px rgba(0,0,0,.25)}
 
-        .header-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            margin: 5px 0 10px 0;
-            width: 100%;
-            max-width: 420px;
-        }
-
-        h1 {
-            margin: 0;
-            font-size: 1.5rem;
-            text-align: center;
-        }
-
-        .github-link {
-            display: inline-flex;
-            align-items: center;
-            color: #94a3b8;
-            text-decoration: none;
-            transition: color 0.2s ease;
-        }
-        .github-link:hover, .github-link:active {
-            color: #ffffff;
-        }
-        .github-link svg {
-            width: 24px;
-            height: 24px;
-            fill: currentColor;
-        }
-
-        .controls {
-            background: #1e293b;
-            padding: 12px;
-            border-radius: 12px;
-            margin-bottom: 15px;
-            width: 100%;
-            max-width: 420px;
-            box-sizing: border-box;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
-        }
-
-        .control-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-        .control-row:last-child { margin-bottom: 0; }
-
-        label { font-size: 0.9rem; font-weight: 500; }
-
-        select {
-            background: #334155;
-            color: white;
-            border: 1px solid #475569;
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            outline: none;
-        }
-
-        .status {
-            font-size: 1.1rem;
-            font-weight: bold;
-            margin-bottom: 10px;
-            height: 1.4em;
-            text-align: center;
-        }
-
-        .board-container {
-            background: var(--board-color);
-            padding: 10px;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
-            touch-action: manipulation;
-        }
-
-        .board {
-            display: grid;
-            gap: 6px;
-            transition: all 0.3s ease;
-        }
-
-        .cell {
-            background: var(--bg-color);
-            border-radius: 50%;
-            cursor: pointer;
-            position: relative;
-        }
-
-        .cell.p1::after {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: var(--player1-color);
-            border-radius: 50%;
-            box-shadow: inset 0 -4px 6px rgba(0,0,0,0.4);
-        }
-
-        .cell.p2::after {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: var(--player2-color);
-            border-radius: 50%;
-            box-shadow: inset 0 -4px 6px rgba(0,0,0,0.4);
-        }
-
-        .btn {
-            background: #2563eb;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 1rem;
-            margin-top: 15px;
-            cursor: pointer;
-            width: 100%;
-            max-width: 200px;
-            text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-        }
-        .btn:active { background: #1d4ed8; }
-    </style>
+.status{font-size:1.1rem;font-weight:bold;margin-bottom:10px;height:1.4em;text-align:center}
+.board-container{background:var(--board-color);padding:10px;border-radius:16px;box-shadow:0 10px 25px -5px rgba(0,0,0,.5);touch-action:manipulation}
+.board{display:grid;gap:6px}
+.cell{background:var(--bg-color);border-radius:50%;cursor:pointer;position:relative}
+.cell.p1::after,.cell.p2::after{content:'';position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 -4px 6px rgba(0,0,0,.4)}
+.cell.p1::after{background:var(--player1-color)}.cell.p2::after{background:var(--player2-color)}
+.btn{background:#2563eb;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:bold;font-size:1rem;margin-top:15px;cursor:pointer;width:100%;max-width:200px;text-align:center;box-shadow:0 4px 6px rgba(0,0,0,.2)}
+.btn:active{background:#1d4ed8}
+.bottom-actions{display:flex;gap:10px;width:100%;max-width:300px;justify-content:center;margin-top:10px}
+.small-btn{width:auto;max-width:none;padding:7px 14px;font-size:.85rem;margin-top:0}
+</style>
 </head>
 <body>
+<div class="header-container">
+<h1>Connect 4 & 5 Solver</h1>
+<a class="github-link" href="https://github.com/z3nax/connect45" target="_blank" rel="noopener noreferrer" aria-label="GitHub Profile">
+<svg viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.646.64.699 1.026 1.592 1.026 2.683 0 3.842-2.337 4.687-4.565 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.577.688.479C19.138 20.164 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+</a></div>
 
-    <div class="header-container">
-        <h1>Connect 4 & 5 Solver</h1>
-        <a class="github-link" href="https://github.com/z3nax/connect45" target="_blank" rel="noopener noreferrer" aria-label="GitHub Profile">
-            <svg viewBox="0 0 24 24">
-                <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.646.64.699 1.026 1.592 1.026 2.683 0 3.842-2.337 4.687-4.565 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.577.688.479C19.138 20.164 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
-            </svg>
-        </a>
-    </div>
+<div class="controls">
+<div class="control-row">
+<label>Game Variant:</label>
+<div class="pill-group" id="game-mode">
+<button class="pill" data-value="c4">Connect 4</button>
+<button class="pill active" data-value="c5">Connect 5</button>
+</div>
+</div>
+<div class="control-row">
+<label style="color:var(--player1-color)">Red (Player 1):</label>
+<div class="pill-group" id="p1-type">
+<button class="pill" data-value="human">Human</button>
+<button class="pill" data-value="ai">AI</button>
+</div>
+</div>
+<div class="control-row">
+<label style="color:var(--player2-color)">Yellow (Player 2):</label>
+<div class="pill-group" id="p2-type">
+<button class="pill" data-value="human">Human</button>
+<button class="pill active" data-value="ai">AI</button>
+</div>
+</div>
+</div>
 
-    <div class="controls">
-        <div class="control-row">
-            <label>Game Variant:</label>
-            <select id="game-mode">
-                <option value="c4">Connect 4 (7x6 Grid)</option>
-                <option value="c5" selected>Connect 5 (9x7 Grid)</option>
-            </select>
-        </div>
-        <div class="control-row">
-            <label style="color: var(--player1-color);">Red (Player 1):</label>
-            <select id="p1-type">
-                <option value="human">Human</option>
-                <option value="ai">AI (Solver)</option>
-            </select>
-        </div>
-        <div class="control-row">
-            <label style="color: var(--player2-color);">Yellow (Player 2):</label>
-            <select id="p2-type">
-                <option value="human">Human</option>
-                <option value="ai" selected>AI (Solver)</option>
-            </select>
-        </div>
-    </div>
+<div class="status" id="status-text">Red's Turn</div>
+<div class="board-container"><div class="board" id="game-board"></div></div>
+<div class="bottom-actions">
+<button class="btn small-btn" id="reset-btn">Reset Game</button>
+<button class="btn small-btn" id="pause-btn">Pause Game</button>
+</div>
 
-    <div class="status" id="status-text">Red's Turn</div>
+<script>
+let ROWS=7,COLS=9,WINDOW_SIZE=5;
+let board=[],currentPlayer=1,gameActive=true,isThinking=false;
+let searchSerial=0,aiWorker=null,gamePaused=false;
 
-    <div class="board-container">
-        <div class="board" id="game-board"></div>
-    </div>
+const boardEl=document.getElementById('game-board');
+const statusEl=document.getElementById('status-text');
+const resetBtn=document.getElementById('reset-btn');
+const pauseBtn=document.getElementById('pause-btn');
+const gameModeSelect=document.getElementById('game-mode');
+const p1TypeSelect=document.getElementById('p1-type');
+const p2TypeSelect=document.getElementById('p2-type');
+const gameMode={get value(){return gameModeSelect.dataset.value||'c5'}};
+const p1Type={get value(){return p1TypeSelect.dataset.value||'human'}};
+const p2Type={get value(){return p2TypeSelect.dataset.value||'ai'}};
 
-    <button class="btn" id="reset-btn">Reset Game</button>
+function setupPills(group, initial, onChange){
+ group.dataset.value=initial;
+ group.querySelectorAll('.pill').forEach(btn=>{
+  btn.classList.toggle('active',btn.dataset.value===initial);
+  btn.addEventListener('click',()=>{
+   if(group.dataset.value===btn.dataset.value)return;
+   group.dataset.value=btn.dataset.value;
+   group.querySelectorAll('.pill').forEach(b=>b.classList.toggle('active',b===btn));
+   onChange(btn.dataset.value);
+  });
+ });
+}
 
-    <script>
-        let ROWS = 7;
-        let COLS = 9;
-        let WINDOW_SIZE = 5;
-        let MAX_DEPTH = 8;
+function configureRules(){
+ if(gameMode.value==='c4'){ROWS=6;COLS=7;WINDOW_SIZE=4}
+ else{ROWS=7;COLS=9;WINDOW_SIZE=5}
+ boardEl.style.gridTemplateColumns=`repeat(${COLS},var(--cell-size))`;
+ boardEl.style.gridTemplateRows=`repeat(${ROWS},var(--cell-size))`;
+}
+function initGame(){
+ cancelAI();
+ gamePaused=false;
+ pauseBtn.textContent='Pause Game';
+ configureRules();
+ board=Array.from({length:ROWS},()=>Array(COLS).fill(0));
+ currentPlayer=1;gameActive=true;isThinking=false;
+ createBoardUI();updateBoardUI();updateStatus();checkAIMove();
+}
+function createBoardUI(){
+ boardEl.innerHTML='';
+ const frag=document.createDocumentFragment();
+ for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+  const cell=document.createElement('div');
+  cell.className='cell';cell.dataset.col=c;
+  frag.appendChild(cell);
+ }
+ boardEl.appendChild(frag);
+}
+boardEl.addEventListener('click',e=>{
+ const cell=e.target.closest('.cell');
+ if(!cell||!gameActive||isThinking||gamePaused)return;
+ const type=currentPlayer===1?p1Type.value:p2Type.value;
+ if(type==='human')makeMove(+cell.dataset.col);
+});
+function updateBoardUI(){
+ const cells=boardEl.children;
+ for(let i=0;i<cells.length;i++){
+  const r=Math.floor(i/COLS),c=i%COLS;
+  cells[i].className='cell'+(board[r][c]===1?' p1':board[r][c]===2?' p2':'');
+ }
+}
+function updateStatus(){
+ if(!gameActive)return;
+ const type=currentPlayer===1?p1Type.value:p2Type.value;
+ const name=currentPlayer===1?'Red':'Yellow';
+ statusEl.textContent=`${name}'s Turn${type==='ai'?' (AI)':''}`;
+ statusEl.style.color=currentPlayer===1?'var(--player1-color)':'var(--player2-color)';
+}
+function getNextOpenRow(b,col){
+ for(let r=ROWS-1;r>=0;r--)if(b[r][col]===0)return r;
+ return -1;
+}
+function checkWin(b,p){
+ for(let r=0;r<ROWS;r++)for(let c=0;c<=COLS-WINDOW_SIZE;c++){
+  let ok=true;for(let k=0;k<WINDOW_SIZE;k++)if(b[r][c+k]!==p){ok=false;break}if(ok)return true;
+ }
+ for(let c=0;c<COLS;c++)for(let r=0;r<=ROWS-WINDOW_SIZE;r++){
+  let ok=true;for(let k=0;k<WINDOW_SIZE;k++)if(b[r+k][c]!==p){ok=false;break}if(ok)return true;
+ }
+ for(let r=WINDOW_SIZE-1;r<ROWS;r++)for(let c=0;c<=COLS-WINDOW_SIZE;c++){
+  let ok=true;for(let k=0;k<WINDOW_SIZE;k++)if(b[r-k][c+k]!==p){ok=false;break}if(ok)return true;
+ }
+ for(let r=0;r<=ROWS-WINDOW_SIZE;r++)for(let c=0;c<=COLS-WINDOW_SIZE;c++){
+  let ok=true;for(let k=0;k<WINDOW_SIZE;k++)if(b[r+k][c+k]!==p){ok=false;break}if(ok)return true;
+ }
+ return false;
+}
+function makeMove(col){
+ if(gamePaused||!gameActive)return false;
+ const row=getNextOpenRow(board,col);if(row<0)return false;
+ board[row][col]=currentPlayer;updateBoardUI();
+ if(checkWin(board,currentPlayer)){gameActive=false;isThinking=false;statusEl.textContent=`${currentPlayer===1?'Red':'Yellow'} Wins!`;cancelAI();return true}
+ if(board[0].every(v=>v!==0)){gameActive=false;isThinking=false;statusEl.textContent="It's a Draw!";statusEl.style.color='#fff';cancelAI();return true}
+ currentPlayer=3-currentPlayer;updateStatus();checkAIMove();return true;
+}
 
-        let board = [];
-        let currentPlayer = 1; 
-        let gameActive = true;
-        let isThinking = false;
-        
-        // Memoization Table to cache unique transpositions using BigInt keys
-        let transpositionTable = new Map();
+/* Fast AI:
+   - Runs in a Web Worker so the page never freezes.
+   - Iterative deepening returns the best completed result before the time limit.
+   - Alpha-beta pruning + center-first ordering + transposition cache.
+   - Immediate win/block checks happen before deeper search.
+*/
+const workerCode=`
+let ROWS=7,COLS=9,W=5,deadline=0,tt=new Map(),killers=[],history=[],nodes=0,stop=false;
+let CENTER=[];
+function row(b,c){for(let r=ROWS-1;r>=0;r--)if(b[r*COLS+c]===0)return r;return -1}
+function moves(b){
+ const a=[];for(const c of CENTER)if(row(b,c)>=0)a.push(c);return a
+}
+function win(b,p){
+ for(let r=0;r<ROWS;r++)for(let c=0;c<=COLS-W;c++){let ok=1;for(let k=0;k<W;k++)if(b[r*COLS+c+k]!==p){ok=0;break}if(ok)return 1}
+ for(let c=0;c<COLS;c++)for(let r=0;r<=ROWS-W;r++){let ok=1;for(let k=0;k<W;k++)if(b[(r+k)*COLS+c]!==p){ok=0;break}if(ok)return 1}
+ for(let r=W-1;r<ROWS;r++)for(let c=0;c<=COLS-W;c++){let ok=1;for(let k=0;k<W;k++)if(b[(r-k)*COLS+c+k]!==p){ok=0;break}if(ok)return 1}
+ for(let r=0;r<=ROWS-W;r++)for(let c=0;c<=COLS-W;c++){let ok=1;for(let k=0;k<W;k++)if(b[(r+k)*COLS+c+k]!==p){ok=0;break}if(ok)return 1}
+ return 0
+}
+function immediate(b,p){
+ for(const c of moves(b)){const r=row(b,c);b[r*COLS+c]=p;const w=win(b,p);b[r*COLS+c]=0;if(w)return c}
+ return -1
+}
+function hash(b,p){let s=p+'|';for(let i=0;i<b.length;i++)s+=b[i];return s}
+function evaluate(b,me){
+ const opp=3-me, center=(COLS-1)/2;
+ let score=0;
+ for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+  const v=b[r*COLS+c];if(!v)continue;
+  const bonus=Math.max(1,10-Math.round(Math.abs(c-center)*2));
+  score+=(v===me?bonus:-bonus);
+ }
+ function lineScore(a){
+  let m=0,o=0,e=0;
+  for(const v of a){if(v===me)m++;else if(v===opp)o++;else e++}
+  if(o===0){
+   if(m===W-1&&e===1)return 90000;
+   if(m===W-2&&e===2)return 9000;
+   if(m===W-3&&e===3)return 700;
+   if(m===W-4&&e===4)return 80;
+  }
+  if(m===0){
+   if(o===W-1&&e===1)return -100000;
+   if(o===W-2&&e===2)return -10000;
+   if(o===W-3&&e===3)return -900;
+   if(o===W-4&&e===4)return -90;
+  }
+  return 0;
+ }
+ for(let r=0;r<ROWS;r++)for(let c=0;c<=COLS-W;c++){
+  const a=[];for(let k=0;k<W;k++)a.push(b[r*COLS+c+k]);score+=lineScore(a)
+ }
+ for(let c=0;c<COLS;c++)for(let r=0;r<=ROWS-W;r++){
+  const a=[];for(let k=0;k<W;k++)a.push(b[(r+k)*COLS+c]);score+=lineScore(a)
+ }
+ for(let r=W-1;r<ROWS;r++)for(let c=0;c<=COLS-W;c++){
+  const a=[];for(let k=0;k<W;k++)a.push(b[(r-k)*COLS+c+k]);score+=lineScore(a)
+ }
+ for(let r=0;r<=ROWS-W;r++)for(let c=0;c<=COLS-W;c++){
+  const a=[];for(let k=0;k<W;k++)a.push(b[(r+k)*COLS+c+k]);score+=lineScore(a)
+ }
+ return score
+}
+function ordered(b,turn,ply){
+ const base=moves(b), scored=[];
+ for(const c of base){
+  let s=history[turn][c]||0;
+  if(killers[ply]===c)s+=1000000;
+  const r=row(b,c);b[r*COLS+c]=turn;
+  if(win(b,turn))s+=10000000;
+  b[r*COLS+c]=0;
+  scored.push([s,c]);
+ }
+ scored.sort((a,b)=>b[0]-a[0]);return scored.map(x=>x[1])
+}
+function search(b,depth,alpha,beta,turn,me,ply){
+ if((++nodes&2047)===0&&performance.now()>=deadline){stop=true;return 0}
+ const k=hash(b,turn)+'|'+depth;
+ const cached=tt.get(k);
+ if(cached&&cached.depth>=depth){
+  if(cached.flag===0)return cached.score;
+  if(cached.flag===1)alpha=Math.max(alpha,cached.score);
+  else if(cached.flag===2)beta=Math.min(beta,cached.score);
+  if(alpha>=beta)return cached.score;
+ }
+ const opp=3-me;
+ if(win(b,me))return 100000000+depth;
+ if(win(b,opp))return -100000000-depth;
+ if(depth<=0)return evaluate(b,me);
+ const ms=ordered(b,turn,ply);
+ if(!ms.length)return 0;
+ const alpha0=alpha,beta0=beta;
+ let best=turn===me?-Infinity:Infinity,bestMove=-1;
+ for(const c of ms){
+  const r=row(b,c);b[r*COLS+c]=turn;
+  const v=search(b,depth-1,alpha,beta,3-turn,me,ply+1);
+  b[r*COLS+c]=0;
+  if(stop)return 0;
+  if(turn===me){
+   if(v>best){best=v;bestMove=c}
+   alpha=Math.max(alpha,v);
+  }else{
+   if(v<best){best=v;bestMove=c}
+   beta=Math.min(beta,v);
+  }
+  if(beta<=alpha){
+   killers[ply]=c;
+   history[turn][c]=(history[turn][c]||0)+depth*depth;
+   break;
+  }
+ }
+ let flag=0;
+ if(best<=alpha0)flag=2;
+ else if(best>=beta0)flag=1;
+ tt.set(k,{depth,score:best,flag,bestMove});
+ if(tt.size>80000)tt=new Map(Array.from(tt).slice(-40000));
+ return best;
+}
+function bestMove(b,me,ms){
+ deadline=performance.now()+ms;stop=false;nodes=0;tt.clear();
+ killers=[];history=[Array(COLS).fill(0),Array(COLS).fill(0),Array(COLS).fill(0)];
+ CENTER=Array.from({length:COLS},(_,i)=>i).sort((a,z)=>Math.abs(a-(COLS-1)/2)-Math.abs(z-(COLS-1)/2));
+ const legal=moves(b);if(!legal.length)return -1;
+ let c=immediate(b,me);if(c>=0)return c;
+ c=immediate(b,3-me);if(c>=0)return c;
+ let best=legal[0];
+ // Iterative deepening: always preserve the last fully completed result.
+ for(let depth=1;depth<=14;depth++){
+  if(performance.now()>=deadline)break;
+  let localBest=best,localScore=-Infinity;
+  for(const col of ordered(b,me,0)){
+   const r=row(b,col);b[r*COLS+col]=me;
+   const v=search(b,depth-1,-Infinity,Infinity,3-me,me,1);
+   b[r*COLS+col]=0;
+   if(stop)break;
+   if(v>localScore){localScore=v;localBest=col}
+  }
+  if(stop)break;
+  best=localBest;
+ }
+ return best;
+}
+onmessage=e=>{
+ const {id,rows,cols,winLength,player,board,time}=e.data;
+ ROWS=rows;COLS=cols;W=winLength;
+ postMessage({id,col:bestMove(board.slice(),player,time)});
+};
+`;
 
-        const boardEl = document.getElementById('game-board');
-        const statusEl = document.getElementById('status-text');
-        const resetBtn = document.getElementById('reset-btn');
-        const gameModeSelect = document.getElementById('game-mode');
-        const p1TypeSelect = document.getElementById('p1-type');
-        const p2TypeSelect = document.getElementById('p2-type');
+function createWorker(){
+ const blob=new Blob([workerCode],{type:'application/javascript'});
+ const w=new Worker(URL.createObjectURL(blob));
+ w.onmessage=e=>{
+  if(e.data.id!==searchSerial)return;
+  isThinking=false;
+  if(!gameActive||gamePaused)return;
+  const type=currentPlayer===1?p1Type.value:p2Type.value;
+  if(type!=='ai')return;
+  if(e.data.col>=0)makeMove(e.data.col);
+ };
+ return w;
+}
+function cancelAI(){
+ searchSerial++;
+ isThinking=false;
+ if(aiWorker){aiWorker.terminate();aiWorker=null}
+}
+function checkAIMove(){
+ if(!gameActive||isThinking||gamePaused)return;
+ const type=currentPlayer===1?p1Type.value:p2Type.value;
+ if(type!=='ai')return;
+ isThinking=true;updateStatus();
+ const id=++searchSerial;
+ if(!aiWorker)aiWorker=createWorker();
+ const time=gameMode.value==='c4'?220:300;
+ aiWorker.postMessage({id,rows:ROWS,cols:COLS,winLength:WINDOW_SIZE,player:currentPlayer,board:board.flat(),time});
+}
 
-        function configureRules() {
-            transpositionTable.clear();
-            if (gameModeSelect.value === 'c4') {
-                ROWS = 6;
-                COLS = 7;
-                WINDOW_SIZE = 4;
-                MAX_DEPTH = 12; // Deeper tactical lookahead for standard Connect 4
-            } else {
-                ROWS = 7;
-                COLS = 9;
-                WINDOW_SIZE = 5;
-                MAX_DEPTH = 7;  // Balanced safe depth for the massive Connect 5 branching factor
-            }
-            boardEl.style.gridTemplateColumns = `repeat(${COLS}, var(--cell-size))`;
-            boardEl.style.gridTemplateRows = `repeat(${ROWS}, var(--cell-size))`;
-        }
+function togglePause(){
+ if(!gameActive)return;
+ if(gamePaused){
+  gamePaused=false;
+  pauseBtn.textContent='Pause Game';
+  updateStatus();
+  checkAIMove();
+ }else{
+  gamePaused=true;
+  cancelAI();
+  pauseBtn.textContent='Play Game';
+  statusEl.textContent='Game Paused';
+  statusEl.style.color='#ffffff';
+ }
+}
 
-        function initGame() {
-            isThinking = false;
-            configureRules();
-            board = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
-            currentPlayer = 1;
-            gameActive = true;
-            createBoardUI();
-            updateStatus();
-            checkAIMove();
-        }
-
-        function createBoardUI() {
-            boardEl.innerHTML = '';
-            for (let r = 0; r < ROWS; r++) {
-                for (let c = 0; c < COLS; c++) {
-                    const cell = document.createElement('div');
-                    cell.classList.add('cell');
-                    cell.dataset.row = r;
-                    cell.dataset.col = c;
-                    cell.addEventListener('click', () => handleCellClick(c));
-                    boardEl.appendChild(cell);
-                }
-            }
-        }
-
-        function updateBoardUI() {
-            const cells = boardEl.children;
-            for (let r = 0; r < ROWS; r++) {
-                for (let c = 0; c < COLS; c++) {
-                    const index = r * COLS + c;
-                    cells[index].className = 'cell';
-                    if (board[r][c] === 1) cells[index].classList.add('p1');
-                    if (board[r][c] === 2) cells[index].classList.add('p2');
-                }
-            }
-        }
-
-        function updateStatus() {
-            if (!gameActive) return;
-            const pType = currentPlayer === 1 ? p1TypeSelect.value : p2TypeSelect.value;
-            const pName = currentPlayer === 1 ? "Red" : "Yellow";
-            statusEl.innerText = `${pName}'s Turn ${pType === 'ai' ? '(Analyzing Space...)' : ''}`;
-            statusEl.style.color = currentPlayer === 1 ? 'var(--player1-color)' : 'var(--player2-color)';
-        }
-
-        function handleCellClick(col) {
-            if (!gameActive || isThinking) return;
-            const currentType = currentPlayer === 1 ? p1TypeSelect.value : p2TypeSelect.value;
-            if (currentType === 'ai') return; 
-
-            makeMove(col);
-        }
-
-        function makeMove(col) {
-            const row = getNextOpenRow(board, col);
-            if (row === -1) return false; 
-
-            board[row][col] = currentPlayer;
-            updateBoardUI();
-
-            if (checkWin(board, currentPlayer)) {
-                statusEl.innerText = `${currentPlayer === 1 ? 'Red' : 'Yellow'} Wins!`;
-                gameActive = false;
-                isThinking = false;
-                return true;
-            }
-
-            if (board[0].every(cell => cell !== 0)) {
-                statusEl.innerText = "It's a Draw!";
-                statusEl.style.color = '#ffffff';
-                gameActive = false;
-                isThinking = false;
-                return true;
-            }
-
-            currentPlayer = currentPlayer === 1 ? 2 : 1;
-            updateStatus();
-            
-            setTimeout(checkAIMove, 40);
-            return true;
-        }
-
-        function getNextOpenRow(b, col) {
-            for (let r = ROWS - 1; r >= 0; r--) {
-                if (b[r][col] === 0) return r;
-            }
-            return -1;
-        }
-
-        function checkWin(b, player) {
-            for (let r = 0; r < ROWS; r++) {
-                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
-                    if (b[r][c] === player && Array(WINDOW_SIZE).fill().every((_, i) => b[r][c+i] === player)) return true;
-                }
-            }
-            for (let c = 0; c < COLS; c++) {
-                for (let r = 0; r <= ROWS - WINDOW_SIZE; r++) {
-                    if (b[r][c] === player && Array(WINDOW_SIZE).fill().every((_, i) => b[r+i][c] === player)) return true;
-                }
-            }
-            for (let r = WINDOW_SIZE - 1; r < ROWS; r++) {
-                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
-                    if (b[r][c] === player && Array(WINDOW_SIZE).fill().every((_, i) => b[r-i][c+i] === player)) return true;
-                }
-            }
-            for (let r = 0; r <= ROWS - WINDOW_SIZE; r++) {
-                for (let c = 0; c <= COLS - WINDOW_SIZE; c++) {
-                    if (b[r][c] === player && Array(WINDOW_SIZE).fill().every((_, i) => b[r+i][c+i] === player)) return true;
-                }
-            }
-            return false;
-        }
-
-        /* 
-           ========================================================================
-           ⚡ FLAWLESS 64-BIT/128-BIT NATIVE BIGINT ENGINE
-           ========================================================================
-        */
-
-        // Maps array configurations cleanly into full arbitrary-precision BigInt keys
-        function getBigIntBitboards(b) {
-            let p1 = 0n;
-            let p2 = 0n;
-
-            for (let c = 0; c < COLS; c++) {
-                for (let r = ROWS - 1; r >= 0; r--) {
-                    // Column major allocation adding an empty boundary bit at top of each column
-                    let bitIndex = BigInt(c * (ROWS + 1) + (ROWS - 1 - r));
-                    if (b[r][c] === 1) {
-                        p1 |= (1n << bitIndex);
-                    } else if (b[r][c] === 2) {
-                        p2 |= (1n << bitIndex);
-                    }
-                }
-            }
-            return { p1, p2 };
-        }
-
-        function checkBigIntWin(boardMask) {
-            let consecutive = BigInt(WINDOW_SIZE - 1);
-            // Directions shifted cleanly across 64+ bit registers:
-            // 1: Vertical, ROWS+1: Horizontal, ROWS+2: Diagonal-Up, ROWS: Diagonal-Down
-            let shiftDirections = [1n, BigInt(ROWS + 1), BigInt(ROWS + 2), BigInt(ROWS)]; 
-
-            for (let shift of shiftDirections) {
-                let mask = boardMask;
-                for (let i = 0n; i < consecutive; i++) {
-                    mask = mask & (mask >> shift);
-                }
-                if (mask !== 0n) return true;
-            }
-            return false;
-        }
-
-        function checkAIMove() {
-            if (!gameActive || isThinking) return;
-            const currentType = currentPlayer === 1 ? p1TypeSelect.value : p2TypeSelect.value;
-            if (currentType === 'ai') {
-                isThinking = true;
-                requestAnimationFrame(() => {
-                    setTimeout(() => {
-                        const bitboards = getBigIntBitboards(board);
-                        const aiCol = getBestBitboardMove(bitboards, currentPlayer);
-                        isThinking = false;
-                        if (aiCol !== -1 && gameActive) {
-                            makeMove(aiCol);
-                        }
-                    }, 10);
-                });
-            }
-        }
-
-        function getBestBitboardMove(bbs, aiPlayer) {
-            let validMoves = [];
-            let center = Math.floor(COLS / 2);
-            
-            let order = Array.from({length: COLS}, (_, i) => i).sort((a, b) => Math.abs(a - center) - Math.abs(b - center));
-
-            for (let col of order) {
-                if (getNextOpenRow(board, col) !== -1) validMoves.push(col);
-            }
-
-            if (validMoves.length === 0) return -1;
-
-            // Direct tactical shortcut sweeps
-            for (let col of validMoves) {
-                let r = getNextOpenRow(board, col);
-                board[r][col] = aiPlayer;
-                let win = checkWin(board, aiPlayer);
-                board[r][col] = 0;
-                if (win) return col;
-            }
-
-            let oppPlayer = aiPlayer === 1 ? 2 : 1;
-            for (let col of validMoves) {
-                let r = getNextOpenRow(board, col);
-                board[r][col] = oppPlayer;
-                let block = checkWin(board, oppPlayer);
-                board[r][col] = 0;
-                if (block) return col;
-            }
-
-            let bestScore = -Infinity;
-            let bestMove = validMoves[0];
-
-            for (let col of validMoves) {
-                let r = getNextOpenRow(board, col);
-                board[r][col] = aiPlayer;
-                
-                let nextBbs = getBigIntBitboards(board);
-                let score = minimaxBitboard(nextBbs, MAX_DEPTH - 1, -Infinity, Infinity, false, aiPlayer, order);
-                
-                board[r][col] = 0;
-
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestMove = col;
-                }
-            }
-            return bestMove;
-        }
-
-        function bitboardHeuristic(bbs, aiPlayer) {
-            let score = 0;
-            let myPos = aiPlayer === 1 ? bbs.p1 : bbs.p2;
-            let centerCol = Math.floor(COLS / 2);
-            
-            // Advanced column grouping rewards center column dominance
-            for (let r = 0; r < ROWS; r++) {
-                for (let c = 0; c < COLS; c++) {
-                    let bitIndex = BigInt(c * (ROWS + 1) + (ROWS - 1 - r));
-                    if (myPos & (1n << bitIndex)) {
-                        score += (c === centerCol) ? 5 : (Math.abs(c - centerCol) === 1) ? 3 : 1;
-                    }
-                }
-            }
-            return score;
-        }
-
-        function minimaxBitboard(bbs, depth, alpha, beta, isMaximizing, aiPlayer, searchOrder) {
-            let myPos = aiPlayer === 1 ? bbs.p1 : bbs.p2;
-            let oppPos = aiPlayer === 1 ? bbs.p2 : bbs.p1;
-
-            if (checkBigIntWin(myPos)) return 10000000 + depth;
-            if (checkBigIntWin(oppPos)) return -10000000 - depth;
-
-            // Strict serialization key for hashing transpositions smoothly
-            let key = `${bbs.p1.toString()},${bbs.p2.toString()}`;
-            if (transpositionTable.has(key)) {
-                let cached = transpositionTable.get(key);
-                if (cached.depth >= depth) return cached.score;
-            }
-
-            if (depth === 0) {
-                let evalScore = bitboardHeuristic(bbs, aiPlayer);
-                transpositionTable.set(key, { depth: depth, score: evalScore });
-                return evalScore;
-            }
-
-            if (isMaximizing) {
-                let maxEval = -Infinity;
-                for (let col of searchOrder) {
-                    let r = getNextOpenRow(board, col);
-                    if (r !== -1) {
-                        board[r][col] = aiPlayer;
-                        let nextBbs = getBigIntBitboards(board);
-                        let evaluation = minimaxBitboard(nextBbs, depth - 1, alpha, beta, false, aiPlayer, searchOrder);
-                        board[r][col] = 0;
-
-                        maxEval = Math.max(maxEval, evaluation);
-                        alpha = Math.max(alpha, evaluation);
-                        if (beta <= alpha) break; 
-                    }
-                }
-                transpositionTable.set(key, { depth: depth, score: maxEval });
-                return maxEval;
-            } else {
-                let minEval = Infinity;
-                let opp = aiPlayer === 1 ? 2 : 1;
-                for (let col of searchOrder) {
-                    let r = getNextOpenRow(board, col);
-                    if (r !== -1) {
-                        board[r][col] = opp;
-                        let nextBbs = getBigIntBitboards(board);
-                        let evaluation = minimaxBitboard(nextBbs, depth - 1, alpha, beta, true, aiPlayer, searchOrder);
-                        board[r][col] = 0;
-
-                        minEval = Math.min(minEval, evaluation);
-                        beta = Math.min(beta, evaluation);
-                        if (beta <= alpha) break; 
-                    }
-                }
-                transpositionTable.set(key, { depth: depth, score: minEval });
-                return minEval;
-            }
-        }
-
-        resetBtn.addEventListener('click', initGame);
-        gameModeSelect.addEventListener('change', initGame);
-        p1TypeSelect.addEventListener('change', initGame);
-        p2TypeSelect.addEventListener('change', initGame);
-
-        initGame();
-    </script>
+/* Switching Human/AI now changes only the controller for that player.
+   The current board, moves, and turn are preserved. */
+function controllerChanged(){
+ cancelAI();
+ if(!gameActive)return;
+ updateStatus();
+ checkAIMove();
+}
+resetBtn.addEventListener('click',initGame);
+pauseBtn.addEventListener('click',togglePause);
+setupPills(gameModeSelect,'c5',()=>initGame());
+setupPills(p1TypeSelect,'human',()=>controllerChanged());
+setupPills(p2TypeSelect,'ai',()=>controllerChanged());
+window.addEventListener('beforeunload',()=>cancelAI());
+initGame();
+</script>
 </body>
 </html>
